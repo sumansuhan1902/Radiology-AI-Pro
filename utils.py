@@ -12,6 +12,7 @@ from reportlab.lib.colors import HexColor
 import tempfile
 import time
 import random
+import re
 
 def _normalize_model_name(model_name):
     """Normalize model names returned by API (models/xxx -> xxx)."""
@@ -148,14 +149,92 @@ def generate_report(image, prompt):
     """Generate report using Gemini API with retry mechanism (backward compatibility)"""
     return generate_report_with_retry(image, prompt)
 
+def _clean_markdown_inline(text):
+    """Convert common markdown inline syntax to ReportLab-friendly tags."""
+    if not text:
+        return ""
+    cleaned = text.strip()
+    # Bold: **text** -> <b>text</b>
+    cleaned = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", cleaned)
+    # Italic: *text* -> <i>text</i> (only simple cases)
+    cleaned = re.sub(r"(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)", r"<i>\1</i>", cleaned)
+    # Inline code: `text` -> plain text (monospace unsupported in base styles)
+    cleaned = re.sub(r"`(.+?)`", r"\1", cleaned)
+    return cleaned
+
+
+def _markdown_like_to_story(story, analysis_text, styles_map):
+    """
+    Convert markdown-like AI output into better structured PDF blocks.
+    Supports:
+    - # / ## / ### headings
+    - bullet lists (-, *, •)
+    - numbered points (1. ...)
+    - key-value lines (KEY: value)
+    - plain paragraphs
+    """
+    if not analysis_text:
+        story.append(Paragraph("No analysis content available.", styles_map["body"]))
+        return
+
+    lines = analysis_text.replace("\r\n", "\n").split("\n")
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line:
+            story.append(Spacer(1, 0.07 * inch))
+            continue
+
+        # Markdown headings
+        if line.startswith("### "):
+            story.append(Paragraph(_clean_markdown_inline(line[4:]), styles_map["h3"]))
+            continue
+        if line.startswith("## "):
+            story.append(Paragraph(_clean_markdown_inline(line[3:]), styles_map["h2"]))
+            continue
+        if line.startswith("# "):
+            story.append(Paragraph(_clean_markdown_inline(line[2:]), styles_map["h1"]))
+            continue
+
+        # Bullet points
+        bullet_match = re.match(r"^[-*•]\s+(.+)$", line)
+        if bullet_match:
+            bullet_text = _clean_markdown_inline(bullet_match.group(1))
+            story.append(Paragraph(f"&bull; {bullet_text}", styles_map["bullet"]))
+            continue
+
+        # Numbered lists
+        number_match = re.match(r"^(\d+)[\.\)]\s+(.+)$", line)
+        if number_match:
+            idx, item_text = number_match.groups()
+            story.append(Paragraph(f"<b>{idx}.</b> {_clean_markdown_inline(item_text)}", styles_map["bullet"]))
+            continue
+
+        # KEY: value formatting
+        kv_match = re.match(r"^([A-Za-z0-9 /()_-]{2,}):\s*(.+)$", line)
+        if kv_match:
+            key, value = kv_match.groups()
+            story.append(Paragraph(f"<b>{_clean_markdown_inline(key)}:</b> {_clean_markdown_inline(value)}", styles_map["body"]))
+            continue
+
+        # Default paragraph
+        story.append(Paragraph(_clean_markdown_inline(line), styles_map["body"]))
+
+
 def create_pdf_report(analysis_text, image=None, report_type="Medical Report", patient_info=None):
-    """Create a PDF report with analysis results"""
+    """Create a polished, structured PDF report from AI analysis text."""
     try:
         # Create a temporary file
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
         
         # Create document
-        doc = SimpleDocTemplate(temp_file.name, pagesize=A4)
+        doc = SimpleDocTemplate(
+            temp_file.name,
+            pagesize=A4,
+            leftMargin=0.65 * inch,
+            rightMargin=0.65 * inch,
+            topMargin=0.65 * inch,
+            bottomMargin=0.65 * inch
+        )
         story = []
         
         # Styles
@@ -163,36 +242,70 @@ def create_pdf_report(analysis_text, image=None, report_type="Medical Report", p
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
-            fontSize=24,
-            textColor=HexColor('#1e3a8a'),
-            spaceAfter=30,
+            fontSize=22,
+            textColor=HexColor('#0f172a'),
+            spaceAfter=14,
             alignment=TA_CENTER
         )
         
         heading_style = ParagraphStyle(
             'CustomHeading',
             parent=styles['Heading2'],
-            fontSize=16,
-            textColor=HexColor('#667eea'),
-            spaceAfter=12,
-            spaceBefore=12
+            fontSize=14,
+            textColor=HexColor('#1d4ed8'),
+            spaceAfter=8,
+            spaceBefore=10
+        )
+
+        sub_heading_style = ParagraphStyle(
+            'CustomSubHeading',
+            parent=styles['Heading3'],
+            fontSize=12,
+            textColor=HexColor('#334155'),
+            spaceAfter=6,
+            spaceBefore=8
+        )
+
+        body_style = ParagraphStyle(
+            'CustomBody',
+            parent=styles['Normal'],
+            fontSize=10.5,
+            leading=15,
+            textColor=HexColor('#111827'),
+            alignment=TA_LEFT
+        )
+
+        bullet_style = ParagraphStyle(
+            'CustomBullet',
+            parent=body_style,
+            leftIndent=12,
+            spaceBefore=1,
+            spaceAfter=2
+        )
+
+        muted_style = ParagraphStyle(
+            'MutedText',
+            parent=styles['Normal'],
+            fontSize=9,
+            textColor=HexColor('#475569'),
+            alignment=TA_CENTER
         )
         
         # Title
         story.append(Paragraph(report_type, title_style))
-        story.append(Paragraph("AI-Powered Medical Analysis Report", styles['Normal']))
-        story.append(Spacer(1, 0.3*inch))
+        story.append(Paragraph("AI-Powered Medical Analysis Report", muted_style))
+        story.append(Spacer(1, 0.20 * inch))
         
         # Patient Information
         if patient_info:
             story.append(Paragraph("Patient Information", heading_style))
             for key, value in patient_info.items():
-                story.append(Paragraph(f"<b>{key}:</b> {value}", styles['Normal']))
-            story.append(Spacer(1, 0.2*inch))
+                story.append(Paragraph(f"<b>{key}:</b> {_clean_markdown_inline(str(value))}", body_style))
+            story.append(Spacer(1, 0.12 * inch))
         
         # Timestamp
-        story.append(Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
-        story.append(Spacer(1, 0.3*inch))
+        story.append(Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", muted_style))
+        story.append(Spacer(1, 0.20 * inch))
         
         # Image (if provided)
         if image:
@@ -204,17 +317,19 @@ def create_pdf_report(analysis_text, image=None, report_type="Medical Report", p
             story.append(Paragraph("Medical Image", heading_style))
             img = RLImage(img_temp.name, width=4*inch, height=3*inch)
             story.append(img)
-            story.append(Spacer(1, 0.3*inch))
+            story.append(Spacer(1, 0.20 * inch))
         
         # Analysis
         story.append(Paragraph("AI Analysis Results", heading_style))
-        
-        # Split text into paragraphs
-        paragraphs = analysis_text.split('\n\n')
-        for para in paragraphs:
-            if para.strip():
-                story.append(Paragraph(para.replace('\n', '<br/>'), styles['Normal']))
-                story.append(Spacer(1, 0.1*inch))
+
+        style_map = {
+            "h1": heading_style,
+            "h2": heading_style,
+            "h3": sub_heading_style,
+            "body": body_style,
+            "bullet": bullet_style,
+        }
+        _markdown_like_to_story(story, analysis_text, style_map)
         
         # Build PDF
         doc.build(story)

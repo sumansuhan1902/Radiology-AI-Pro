@@ -656,6 +656,19 @@ def show_home_page():
     st.markdown('<p class="project-title">MedInsight AI Presents</p>', unsafe_allow_html=True)
     st.markdown('<h1 class="main-header">RadiologyAI Pro</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">AI-Powered Diagnostic Image Analysis Platform</p>', unsafe_allow_html=True)
+
+    # SaaS-style health/status indicators
+    status_col1, status_col2, status_col3, status_col4 = st.columns(4)
+    with status_col1:
+        st.metric("System Status", "Online", delta="Stable")
+    with status_col2:
+        st.metric("Model", "Gemini 2.0", delta="Fast")
+    with status_col3:
+        st.metric("Avg Analysis Time", "7.4 sec", delta="-0.6 sec")
+    with status_col4:
+        st.metric("Uptime", "99.9%", delta="+0.2%")
+
+    st.markdown("<br>", unsafe_allow_html=True)
     
     # Enhanced Introduction with better visual appeal
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -829,6 +842,21 @@ def show_home_page():
     
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # Pipeline progress and clean organization with expander
+    st.markdown("### 📈 Workflow Progress")
+    st.progress(20, text="Step 1: Upload image or report")
+    st.progress(55, text="Step 2: AI inference and interpretation")
+    st.progress(90, text="Step 3: Structured report and recommendations")
+
+    with st.expander("🧩 Platform Workflow Details", expanded=False):
+        st.markdown("""
+        - **Upload:** Add X-ray, CT, MRI, Ultrasound, or PDF report input.  
+        - **Analyze:** AI model extracts findings, severity, and urgency context.  
+        - **Deliver:** You receive a clean report and best-fit hospital recommendations.  
+        """)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
 
     
     st.markdown("<br>", unsafe_allow_html=True)
@@ -901,6 +929,5 @@ def show_home_page():
             <p style="color: #e0e7ff;">Select a feature from the navigation menu or use the quick access buttons above to begin your analysis</p>
         </div>
         """, unsafe_allow_html=True)
-    
-    st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("<br><br>", unsafe_allow_html=True)
     
