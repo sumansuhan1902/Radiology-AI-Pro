@@ -904,39 +904,3 @@ def show_home_page():
     
     st.markdown("<br><br>", unsafe_allow_html=True)
     
-    # Team Section with improved styling
-    st.markdown("### 👥 Project Team")
-    st.markdown("""
-    <div class="feature-card">
-        <table class="team-table">
-            <thead>
-                <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                    <th style="border-radius: 10px 0 0 0;">Role</th>
-                    <th style="border-radius: 0 10px 0 0;">Name</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr style="background-color: #f8f9fa;">
-                    <td><b>👨‍✈️ Captain</b></td>
-                    <td>Mohd Zaheeruddin</td>
-                </tr>
-                <tr style="background-color: #ffffff;">
-                    <td><b>🎖️ Vice Captain</b></td>
-                    <td>Suman Suhan</td>
-                </tr>
-                <tr style="background-color: #f8f9fa;">
-                    <td><b>👤 Team Member</b></td>
-                    <td>Subiya Mahveen</td>
-                </tr>
-                <tr style="background-color: #ffffff;">
-                    <td><b>👤 Team Member</b></td>
-                    <td>Syed Amaan Hussani</td>
-                </tr>
-                <tr style="background-color: #f8f9fa;">
-                    <td><b>👤 Team Member</b></td>
-                    <td>Humayun Attar</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    """, unsafe_allow_html=True)
